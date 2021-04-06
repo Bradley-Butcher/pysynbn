@@ -8,7 +8,7 @@ from enum import Enum
 import typer
 from rich.console import Console
 from synbn import __version__
-from synbn.example import hello
+from synbn.dag import hello
 
 
 class Color(str, Enum):
