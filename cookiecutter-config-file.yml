@@ -1,0 +1,10 @@
+# This file contains values from Cookiecutter
+
+default_context:
+  project_name: "synbn"
+  project_description: "A Python library for generating Synthetic Bayesian Networks"
+  organization: "Predictive Analytics Lab"
+  license: "MIT"
+  version: "0.1.0"
+  github_name: "Bradley-Butcher"
+  email: "b.butcher@sussex.ac.uk"
