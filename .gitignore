@@ -43,7 +43,7 @@ Temporary Items
 
 # Generated files
 .idea/**/contentModel.xml
-
+.idea
 # Sensitive or high-churn files
 .idea/**/dataSources/
 .idea/**/dataSources.ids
@@ -56,6 +56,8 @@ Temporary Items
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
+
+.idea/*.xml
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
