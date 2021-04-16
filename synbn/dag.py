@@ -1,5 +1,7 @@
 """We use this file as an example for some module."""
-from typing import Callable, List
+from __future__ import annotations
+
+from typing import Callable, List, cast
 
 import numpy as np
 from baynet import DAG
@@ -11,11 +13,11 @@ def _shuffle(positive: int, total: int, padding: int) -> np.ndarray:
     positive = np.min([positive, total])
     result = np.concatenate([np.ones(positive), np.zeros(total - positive)])
     np.random.shuffle(result)  # Uses standard uniform shuffling
-    return np.concatenate([np.zeros(padding), result])
+    return cast(np.ndarray, np.concatenate([np.zeros(padding), result]))
 
 
 def generate_dag(
-    nodes: int, distribution: Callable[[int], List[int]], seed: int = 1
+    nodes: int, distribution: Callable[[int], list[int]], seed: int = 1
 ) -> DAG:
     """Generate a DAG
 
@@ -32,11 +34,12 @@ def generate_dag(
             >>> from functools import partial
             >>> from numpy.random import binomial
             >>> dist = partial(binomial, n=5, p=0.5)
-            >>> generate_dag(20, dist)
-            baynet.DAG
+            >>> bn = generate_dag(20, dist)
+            >>> len(bn.vs)
+            20
     """
     np.random.seed(seed)
-    in_degree_samples = sorted(distribution(size=nodes), reverse=True)
+    in_degree_samples = sorted(distribution(size=nodes), reverse=True)  # type: ignore
     adj_mat = np.zeros((nodes, nodes))
     for i in range(nodes):
         n_parents = in_degree_samples[i]

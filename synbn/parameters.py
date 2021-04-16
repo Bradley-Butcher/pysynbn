@@ -1,8 +1,6 @@
 """We use this file as an example for some module."""
 from __future__ import annotations
 
-from typing import Callable, List
-
 import numpy as np
 import pandas as pd
 from baynet import DAG
@@ -31,7 +29,7 @@ def _dataframe_to_marginals(data: pd.DataFrame) -> np.ndarray:
 
 def generate_parameters(
     dag: DAG,
-    marginals: pd.DataFrame | list[list[float]] | list[float] | np.ndarray,
+    marginals: pd.DataFrame | list[list[float]] | list[float] | np.ndarray,  # type: ignore
     concentration: float = 2,
 ) -> DAG:
     if isinstance(marginals, pd.DataFrame):
