@@ -1,5 +1,5 @@
 """We use this file as an example for some module."""
-from typing import Callable
+from typing import Callable, List
 
 import numpy as np
 from baynet import DAG
@@ -7,14 +7,16 @@ from baynet import DAG
 __all__ = ["generate_dag"]
 
 
-def _shuffle(positive: int, total: int, padding: int):
+def _shuffle(positive: int, total: int, padding: int) -> np.ndarray:
     positive = np.min([positive, total])
     result = np.concatenate([np.ones(positive), np.zeros(total - positive)])
     np.random.shuffle(result)  # Uses standard uniform shuffling
     return np.concatenate([np.zeros(padding), result])
 
 
-def generate_dag(nodes: int, distribution: Callable, seed: int = 1) -> DAG:
+def generate_dag(
+    nodes: int, distribution: Callable[[int], List[int]], seed: int = 1
+) -> DAG:
     """Generate a DAG
 
     Args:
