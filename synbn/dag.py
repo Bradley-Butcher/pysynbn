@@ -1,7 +1,7 @@
 """We use this file as an example for some module."""
 from __future__ import annotations
 
-from typing import Callable, List, cast
+from typing import Callable, cast
 
 import numpy as np
 from baynet import DAG
@@ -17,7 +17,7 @@ def _shuffle(positive: int, total: int, padding: int) -> np.ndarray:
 
 
 def generate_dag(
-    nodes: int, distribution: Callable[[int], list[int]], seed: int = 1
+    nodes: int, distribution: Callable[[int], list[int]], seed: int = 1  # type: ignore
 ) -> DAG:
     """Generate a DAG
 
