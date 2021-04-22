@@ -11,7 +11,9 @@ from baynet import DAG
 from baynet.parameters import ConditionalProbabilityTable
 from igraph import Vertex
 from matplotlib import pyplot as plt
-from scipy.stats import entropy, gaussian_kde
+from scipy.stats import entropy, gaussian_kde, skellam
+from sympy import Eq, solve
+from sympy.abc import x, y
 
 __all__ = [
     "generate_parameters",
@@ -19,6 +21,7 @@ __all__ = [
     "Permutator",
     "PermutationType",
     "dataframe_to_marginals",
+    "binomial_mv",
 ]
 
 
@@ -153,6 +156,12 @@ def generate_parameters(
         marginals = dataframe_to_marginals(marginals)
     elif isinstance(marginals, list):
         marginals = np.array(marginals)
-        if marginals.shape[0] == 1:
-            marginals = np.tile(marginals, len(dag.vs))
+        if marginals.ndim == 1:
+            marginals = np.tile(marginals, (len(dag.vs), 1))
     return _assign_cpt(dag, marginals, concentration, assignation)
+
+
+def binomial_mv(mean: float, variance: float, samples: int):
+    sol = solve([Eq(x * y, mean), Eq(x * y * (1 - y), variance)])[0]
+    res = {s: sol[s].evalf() for s in sol}
+    return np.random.binomial(n=res[x], p=res[y], size=samples)

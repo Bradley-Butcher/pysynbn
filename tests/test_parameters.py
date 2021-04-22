@@ -4,10 +4,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import seaborn as sns
 from baynet import DAG
+from matplotlib import pyplot as plt
 from numpy.random import binomial
 from synbn.dag import generate_dag
-from synbn.parameters import dataframe_to_marginals, generate_parameters
+from synbn.parameters import (
+    binomial_mv,
+    dataframe_to_marginals,
+    generate_parameters,
+)
 
 
 def _test_dag(nodes: int) -> DAG:
@@ -56,3 +62,9 @@ def test_bn_has_parameters(assignation: str):
     data = _test_data_manual_large()
     bn, perms = generate_parameters(dag, data, assignation=assignation)
     assert [v["CPT"] for v in bn.vs]
+
+
+def test_bionmial_reparam():
+    mean, var = 3, 1
+    samples = binomial_mv(mean, var, 1000)
+    assert np.round(np.mean(samples)) == mean
