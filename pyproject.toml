@@ -39,6 +39,7 @@ rich = "^9.8.2"
 baynet = {git="https://github.com/predictive-analytics-lab/BayNet.git", branch="alpha_vector" }
 scipy = "^1.6.2"
 tqdm = "^4.60.0"
+seaborn = "^0.11.1"
 
 [tool.poetry.dev-dependencies]
 darglint = "^1.5.8"

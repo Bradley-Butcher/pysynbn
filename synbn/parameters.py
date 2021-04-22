@@ -1,29 +1,126 @@
 """We use this file as an example for some module."""
 from __future__ import annotations
 
+from enum import Enum
 from itertools import permutations
 
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from baynet import DAG
 from baynet.parameters import ConditionalProbabilityTable
 from igraph import Vertex
-from scipy.stats import entropy
-from tqdm import tqdm
+from matplotlib import pyplot as plt
+from scipy.stats import entropy, gaussian_kde
 
-__all__ = ["generate_parameters", "generate_cpt"]
+__all__ = [
+    "generate_parameters",
+    "generate_cpt",
+    "Permutator",
+    "PermutationType",
+    "dataframe_to_marginals",
+]
+
+
+class PermutationType(Enum):
+    RANDOM = "random"
+    UPPER_BOUND = "upper"
+    SAMPLE = "sample"
+
+
+class Permutator:
+    def __init__(
+        self, permutation_type: PermutationType, marginals, adj_matrix, **kwargs
+    ):
+        self.permutation_type = permutation_type
+        self.marginals = marginals
+        self.adj_matrix = adj_matrix
+        assignment_func = {
+            "random": self._random_permutation,
+            "upper": self._upper_bound_permutation,
+            "sample": self._sample_permutation,
+        }
+        self.permutation = assignment_func[permutation_type.value]()
+
+    @classmethod
+    def from_dag(
+        cls,
+        dag: DAG,
+        marginals: np.ndarray,
+        permutation_type: PermutationType | str,
+    ):
+        permutation_type = (
+            PermutationType(permutation_type)
+            if isinstance(permutation_type, str)
+            else permutation_type
+        )
+        return Permutator(
+            permutation_type, marginals, np.array(dag.get_adjacency().data)
+        )
+
+    def difficulty(self, permutation):
+        inv_e = np.array([1 / entropy(list(mi)) for mi in self.marginals])[
+            permutation
+        ]
+        return np.sum(
+            np.prod(
+                self.adj_matrix * inv_e + np.ones(self.adj_matrix.shape), axis=1
+            )
+        )
+
+    def _random_permutation(self) -> np.ndarray:
+        return np.random.choice(
+            range(self.adj_matrix.shape[0]),
+            self.adj_matrix.shape[0],
+            replace=False,
+        )
+
+    def _upper_bound_permutation(self) -> np.ndarray:
+        out_degree_order = np.argsort(np.sum(self.adj_matrix, axis=0))[::-1]
+        inv_e = np.argsort(
+            np.array([1 / entropy(list(mi)) for mi in self.marginals])
+        )[::-1]
+        perm = np.zeros(self.adj_matrix.shape[0], dtype=np.int32)
+        for i, e in enumerate(inv_e):
+            perm[e] = out_degree_order[i]
+        return perm
+
+    def _build_difficulty_distribution(self, samples: int) -> np.ndarray:
+        permutation_dict = {}
+        if np.math.factorial(self.adj_matrix.shape[0]) < samples:
+            # DO FULL PERMUTATION
+            pass
+        for i in range(samples):
+            permutation = np.random.permutation(self.adj_matrix.shape[0])
+            permutation_dict[self.difficulty(permutation)] = permutation
+        self.permutation_dict = permutation_dict
+
+    def _sample_permutation(self, samples: int = 1_000):
+        self._build_difficulty_distribution(samples=samples)
+        dist = np.array(list(self.permutation_dict.keys()))
+        kde = gaussian_kde(dist)
+        sample = kde.resample(1)[0][0]
+        idx = np.argmin(np.abs(dist - sample))
+        return self.permutation_dict[dist[idx]]
+
+    def difficulty_distribution(self):
+        assert (
+            self.permutation_dict
+        ), "Permutation Dict not found. Use the sampling method."
+        sns.distplot(list(self.permutation_dict.keys()))
+        plt.show()
 
 
 def generate_cpt(
     vertex: Vertex, marginal_distribution: np.ndarray, concentration: float
 ) -> ConditionalProbabilityTable:
     cpt = ConditionalProbabilityTable(vertex=vertex)
-    alphas = np.array(marginal_distribution) * concentration
+    alphas = np.array(marginal_distribution, dtype=np.float64) * concentration
     cpt.sample_parameters(alpha=alphas)
     return cpt
 
 
-def _dataframe_to_marginals(data: pd.DataFrame) -> np.ndarray:
+def dataframe_to_marginals(data: pd.DataFrame) -> np.ndarray:
     proportions = [
         list(data.groupby([col])[col].value_counts().values / len(data))
         for col in data.columns
@@ -31,58 +128,31 @@ def _dataframe_to_marginals(data: pd.DataFrame) -> np.ndarray:
     return np.array(proportions, dtype="object")
 
 
-def _random_permutation(amat: np.ndarray, marginals: np.ndarray) -> np.ndarray:
-    return np.random.choice(range(amat.shape[0]), amat.shape[0], replace=False)
-
-
-def _upper_bound_permutation(
-    amat: np.ndarray, marginals: np.ndarray
-) -> np.ndarray:
-    perms = list(permutations(range(amat.shape[0])))
-    diffs = np.zeros(len(perms))
-    for i, p in enumerate(tqdm(perms)):
-        diffs[i] = difficulty(marginals, amat, np.array(p))
-    return perms[np.argmax(diffs)]
-
-
-def _sample_permutation(amat: np.ndarray, marginals: np.ndarray) -> np.ndarray:
-    return np.random.choice(range(amat.shape[0]), amat.shape[0], replace=False)
-
-
 def _assign_cpt(
-    dag: DAG, marginals: np.ndarray, concentration: float, assignment: str
-) -> DAG:
-    assignment_func = {
-        "random": _random_permutation,
-        "upper_bound": _upper_bound_permutation,
-        "sample": _sample_permutation,
-    }
-    permutation = assignment_func[assignment](
-        np.array(dag.get_adjacency().data), marginals
-    )
-    for i, vertex in zip(permutation, dag.vs):
+    dag: DAG, marginals: np.ndarray, concentration: float, assignment_type: str
+) -> DAG & Permutator:
+    permutator = Permutator.from_dag(dag, marginals, assignment_type)
+    for i, vertex in zip(permutator.permutation, dag.vs):
         vertex["levels"] = list(range(len(marginals[i])))
-    for i, vertex in zip(permutation, dag.vs):
+    for i, vertex in zip(permutator.permutation, dag.vs):
         vertex["CPT"] = generate_cpt(
             vertex, marginals[i], concentration=concentration
         )
-    return dag
-
-
-def difficulty(marginals, amat, permutation):
-    inv_e = np.array([1 / entropy(mi) for mi in marginals])[permutation]
-    return np.sum(np.prod(amat * inv_e + np.ones(amat.shape), axis=1))
+    return dag, permutator
 
 
 def generate_parameters(
     dag: DAG,
     marginals: pd.DataFrame | list[list[float]] | list[float] | np.ndarray,  # type: ignore
     concentration: float = 2,
-) -> DAG:
+    assignation: str | PermutationType | Permutator = "random",
+    seed: int = 1,
+) -> DAG & Permutator:
+    np.random.seed(seed)
     if isinstance(marginals, pd.DataFrame):
-        marginals = _dataframe_to_marginals(marginals)
+        marginals = dataframe_to_marginals(marginals)
     elif isinstance(marginals, list):
         marginals = np.array(marginals)
         if marginals.shape[0] == 1:
             marginals = np.tile(marginals, len(dag.vs))
-    return _assign_cpt(dag, marginals, concentration, "upper_bound")
+    return _assign_cpt(dag, marginals, concentration, assignation)
