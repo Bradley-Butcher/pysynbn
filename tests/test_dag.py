@@ -1,7 +1,6 @@
 from functools import partial
 from pathlib import Path
 
-import pytest
 from graphviz import ExecutableNotFound
 from numpy.random import binomial
 from synbn.dag import generate_dag

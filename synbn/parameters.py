@@ -1,6 +1,7 @@
 """We use this file as an example for some module."""
 from __future__ import annotations
 
+import warnings
 from enum import Enum
 from itertools import permutations
 
@@ -98,9 +99,11 @@ class Permutator:
             permutation_dict[self.difficulty(permutation)] = permutation
         self.permutation_dict = permutation_dict
 
-    def _sample_permutation(self, samples: int = 1_000):
+    def _sample_permutation(self, samples: int = 100):
         self._build_difficulty_distribution(samples=samples)
         dist = np.array(list(self.permutation_dict.keys()))
+        if len(dist) == 1:
+            return self.permutation_dict[dist[0]]
         kde = gaussian_kde(dist)
         sample = kde.resample(1)[0][0]
         idx = np.argmin(np.abs(dist - sample))
@@ -138,7 +141,7 @@ def _assign_cpt(
     for i, vertex in zip(permutator.permutation, dag.vs):
         vertex["levels"] = list(range(len(marginals[i])))
     for i, vertex in zip(permutator.permutation, dag.vs):
-        vertex["CPT"] = generate_cpt(
+        vertex["CPD"] = generate_cpt(
             vertex, marginals[i], concentration=concentration
         )
     return dag, permutator
@@ -157,11 +160,14 @@ def generate_parameters(
     elif isinstance(marginals, list):
         marginals = np.array(marginals)
         if marginals.ndim == 1:
+            warnings.warn(
+                "Assignation rendered irrelevant due to one dimensional marginal."
+            )
             marginals = np.tile(marginals, (len(dag.vs), 1))
     return _assign_cpt(dag, marginals, concentration, assignation)
 
 
-def binomial_mv(mean: float, variance: float, samples: int):
+def binomial_mv(mean: float, variance: float, size: int):
     sol = solve([Eq(x * y, mean), Eq(x * y * (1 - y), variance)])[0]
     res = {s: sol[s].evalf() for s in sol}
-    return np.random.binomial(n=res[x], p=res[y], size=samples)
+    return np.random.binomial(n=res[x], p=res[y], size=size)

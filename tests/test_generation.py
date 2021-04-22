@@ -5,6 +5,7 @@ import pytest
 from baynet import DAG
 from numpy.random import binomial
 from synbn.generator import Generator
+from synbn.parameters import binomial_mv
 
 
 def _test_data() -> pd.DataFrame:
@@ -28,23 +29,26 @@ def test_generation_from_data(assignation):
     gen = Generator.from_dataset(
         data=data,
         indegree_distribution=distribution,
-        concentration=2,
+        concentration=10,
         assignation=assignation,
     )
     bns = gen.sample_bns(n_bns=10)
     assert len(bns) == 10
-    assert [isinstance(bn, DAG) for bn in bns]
+    assert all([isinstance(bn, DAG) for bn in bns])
+    assert all([bn.vs[0]["CPD"] for bn in bns])
 
 
-def test_generation_marginal():
-    distribution = partial(binomial, n=4, p=0.5)
+@pytest.mark.parametrize("assignation", ["random", "upper", "sample"])
+def test_generation_marginal(assignation):
+    distribution = partial(binomial_mv, mean=2, variance=1)
     gen = Generator(
         40,
         distribution,
         [0.3, 0.2, 0.5],
         concentration=10,
-        assignation="random",
+        assignation=assignation,
     )
     bns = gen.sample_bns(10)
     assert len(bns) == 10
-    assert [isinstance(bn, DAG) for bn in bns]
+    assert all([isinstance(bn, DAG) for bn in bns])
+    assert all([bn.vs[0]["CPD"] for bn in bns])

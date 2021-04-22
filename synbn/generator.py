@@ -83,7 +83,10 @@ class Generator:
             dag, self.marginals, self.concentration, self.assignation
         )
         self.seed += 1
-        return bn, perm if with_permutators else bn
+        if with_permutators:
+            return bn, perm
+        else:
+            return bn
 
     def sample_bns(
         self, n_bns: int = 10, with_permutators: bool = False
